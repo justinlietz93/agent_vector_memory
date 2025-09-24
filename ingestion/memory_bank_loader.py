@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Dict
 
 from ..domain.models import MemoryItem
+from ..infrastructure.qdrant.client import current_thread_id
 
 
 def load_memory_items(directory: Path) -> List[MemoryItem]:
@@ -22,5 +23,8 @@ def load_memory_items(directory: Path) -> List[MemoryItem]:
             "size_bytes": stat.st_size,
             "kind": "memory-bank",
         }
+        thread_id = current_thread_id()
+        if thread_id:
+            meta["thread_id"] = thread_id
         items.append(MemoryItem(text=text, meta=meta))
     return items

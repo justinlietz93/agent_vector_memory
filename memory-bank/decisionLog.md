@@ -7,3 +7,6 @@
 | 2025-09-23 | Injected package parent into `PYTHONPATH` before CLI calls | Ensures `vector_memory` imports succeed without editable install |
 | 2025-09-23 | Auto-install CLI dependency `requests` and share repo paths with subprocesses | Prevents users from needing manual pip/debug steps during setup post-actions |
 | 2025-09-24 | Added http(s) URL validation prompts for Ollama/Qdrant inputs | Stops accidental yes/no answers from overwriting endpoint defaults |
+| 2025-09-24 | Added `remember-bulk` CLI for structured batch inserts | Improves operator UX for importing large JSON/JSONL datasets without manual line splitting |
+| 2025-09-24 | Recognized SIE stability loop + KG TDA telemetry as core safety monitors | Lyapunov analysis and persistence metrics proved the loop essential and informed ongoing monitoring |
+| 2025-09-24 | Initiated manual VDM knowledge graph seed | Documented key entities and relations so future agents can load a structured KG quickly |

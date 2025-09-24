@@ -39,6 +39,19 @@ def build_parser() -> argparse.ArgumentParser:
     rm.add_argument("--tag", action="append", default=[], help="Tag label to add to memory payload; can repeat")
     rm.add_argument("--idns", default="convo", help="ID namespace for deterministic UUIDv5")
 
+    # Bulk remember from structured inputs (JSON/JSONL/txt)
+    rb = sub.add_parser("remember-bulk")
+    rb.add_argument("--name", required=False, help="Collection name; defaults to $MEMORY_COLLECTION_NAME")
+    rb.add_argument("--input", required=True, help="Path to input file (JSON, JSONL, or text)")
+    rb.add_argument(
+        "--format",
+        choices=["auto", "jsonl", "json", "txt"],
+        default="auto",
+        help="Input format; defaults to infer from file extension",
+    )
+    rb.add_argument("--tag", action="append", default=[], help="Tag label to add to each memory; can repeat")
+    rb.add_argument("--idns", default="bulk", help="ID namespace for deterministic UUIDv5")
+
     # Store a chat turn (user/assistant) with metadata and chunking
     st = sub.add_parser("store-turn")
     st.add_argument("--name", required=False, help="Collection name; defaults to $MEMORY_COLLECTION_NAME")

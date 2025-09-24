@@ -10,6 +10,10 @@
 
 # Repo specific
 tools/current_thread.lock
+*/vdm_kg_manual_seed.md
+memory-bank/*.md
+memory-bank/*.json
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -233,3 +237,8 @@ __marimo__/
 
 # AI dev tools
 #memory-bank/
+memory-bank/activeContext.md
+memory-bank/decisionLog.md
+memory-bank/memoriagent_context_log.json
+memory-bank/productContext.md
+memory-bank/progress.md

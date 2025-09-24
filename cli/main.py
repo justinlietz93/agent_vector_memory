@@ -11,7 +11,7 @@ from datetime import datetime
 
 from ..infrastructure.logging import get_logger
 from ..infrastructure.ollama.client import OllamaEmbeddingService
-from ..infrastructure.qdrant.client import QdrantVectorStore
+from ..infrastructure.qdrant.client import QdrantVectorStore, current_thread_id
 from ..infrastructure.timeouts import http_timeout_seconds, operation_timeout
 from ..infrastructure.config import qdrant_url, chat_chunk_chars
 from ..ingestion.memory_bank_loader import load_memory_items
@@ -330,6 +330,8 @@ def dispatch_commands(ns, emb, store):
 
     if ns.cmd == "remember":
         return remember_memory(ns, emb, store)
+    if ns.cmd == "remember-bulk":
+        return remember_bulk(ns, emb, store)
 
     if ns.cmd == "recall":
         return _recall(ns, emb, store)
@@ -676,6 +678,238 @@ def main() -> int:
     return run(sys.argv[1:])
 
 
+def _infer_bulk_format(fmt: str, path: Path) -> str:
+    """Infer bulk input format from explicit flag or file extension."""
+
+    resolved = (fmt or "auto").lower()
+    if resolved != "auto":
+        return resolved
+
+    ext = path.suffix.lower()
+    if ext in {".jsonl", ".ndjson"}:
+        return "jsonl"
+    if ext == ".json":
+        return "json"
+    return "txt"
+
+
+def _normalize_tags(*groups) -> List[str]:
+    """Merge and deduplicate tag sequences while preserving order."""
+
+    tags: List[str] = []
+    for group in groups:
+        if not group:
+            continue
+        if isinstance(group, str):
+            group_iter = [group]
+        else:
+            group_iter = group
+        if isinstance(group_iter, (list, tuple, set)):
+            for tag in group_iter:
+                if isinstance(tag, str):
+                    normalized = tag.strip()
+                    if normalized and normalized not in tags:
+                        tags.append(normalized)
+    return tags
+
+
+def _entry_to_memory_item(
+    entry: object,
+    *,
+    index: int,
+    default_meta: Dict[str, object],
+    default_tags: List[str],
+    source: str,
+) -> MemoryItem:
+    """Convert a bulk entry (string or mapping) into a MemoryItem."""
+
+    text: str
+    meta_payload: Dict[str, object] = {}
+    entry_tags: List[str] = []
+
+    if isinstance(entry, str):
+        text = entry.strip()
+        if not text:
+            raise ValueError("Encountered empty text entry in bulk input")
+    elif isinstance(entry, dict):
+        raw_text = entry.get("text")
+        if not isinstance(raw_text, str) or not raw_text.strip():
+            raise ValueError("Bulk JSON entry must include non-empty 'text'")
+        text = raw_text
+
+        payload_meta = entry.get("meta")
+        if isinstance(payload_meta, dict):
+            meta_payload.update(payload_meta)
+
+        # Any additional keys become metadata (without overriding explicit meta)
+        for key, value in entry.items():
+            if key in {"text", "meta", "tags"}:
+                continue
+            if value is not None and key not in meta_payload:
+                meta_payload[key] = value
+
+        entry_tags = entry.get("tags") if isinstance(entry.get("tags"), list) else []
+    else:
+        raise ValueError("Bulk entries must be strings or objects with a 'text' field")
+
+    meta: Dict[str, object] = {**default_meta, "bulk_index": index}
+    for key, value in meta_payload.items():
+        if value is not None:
+            meta[key] = value
+
+    merged_tags = _normalize_tags(meta.get("tags"), entry_tags, default_tags)
+    if merged_tags:
+        meta["tags"] = merged_tags
+    elif "tags" in meta:
+        meta.pop("tags")
+
+    if "source" not in meta:
+        meta["source"] = source
+
+    meta = {k: v for k, v in meta.items() if v is not None}
+    return MemoryItem(text=text, meta=meta)
+
+
+def _load_bulk_items(path: Path, fmt: str, tags: List[str]) -> List[MemoryItem]:
+    """Load bulk memory items from file according to format."""
+
+    thread_id = current_thread_id()
+    default_meta: Dict[str, object] = {
+        "kind": "bulk",
+    }
+    if thread_id:
+        default_meta["thread_id"] = thread_id
+    source = f"cli:remember-bulk:{path.name}"
+    items: List[MemoryItem] = []
+    default_tags = _normalize_tags(tags)
+
+    if fmt == "txt":
+        for idx, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines()):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            items.append(
+                _entry_to_memory_item(
+                    stripped,
+                    index=idx,
+                    default_meta=default_meta,
+                    default_tags=default_tags,
+                    source=source,
+                )
+            )
+        return items
+
+    if fmt == "jsonl":
+        for idx, raw in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines()):
+            if not raw.strip():
+                continue
+            try:
+                entry = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON on line {idx + 1}: {exc}") from exc
+            items.append(
+                _entry_to_memory_item(
+                    entry,
+                    index=idx,
+                    default_meta=default_meta,
+                    default_tags=default_tags,
+                    source=source,
+                )
+            )
+        return items
+
+    if fmt == "json":
+        try:
+            data = json.loads(path.read_text(encoding="utf-8", errors="ignore"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON file: {exc}") from exc
+
+        if isinstance(data, dict) and isinstance(data.get("items"), list):
+            entries = data["items"]
+        elif isinstance(data, list):
+            entries = data
+        else:
+            raise ValueError("JSON input must be a list or contain an 'items' array")
+
+        for idx, entry in enumerate(entries):
+            items.append(
+                _entry_to_memory_item(
+                    entry,
+                    index=idx,
+                    default_meta=default_meta,
+                    default_tags=default_tags,
+                    source=source,
+                )
+            )
+        return items
+
+    raise ValueError(f"Unsupported format '{fmt}'")
+
+
+def remember_bulk(ns, emb, store):
+    """Remember large batches of memories from JSON/JSONL/text files."""
+
+    collection = _resolve_collection_name(getattr(ns, "name", None))
+    input_path = Path(str(ns.input)).expanduser()
+
+    if not input_path.exists():
+        print(
+            json.dumps(
+                {
+                    "status": "error",
+                    "error": f"Input file '{input_path}' not found",
+                    "collection": collection,
+                }
+            )
+        )
+        return 2
+
+    fmt = _infer_bulk_format(getattr(ns, "format", "auto"), input_path)
+    tags = list(getattr(ns, "tag", []) or [])
+
+    try:
+        items = _load_bulk_items(input_path, fmt, tags)
+    except ValueError as exc:
+        print(json.dumps({"status": "error", "error": str(exc)}, indent=2))
+        return 2
+
+    if not items:
+        print(json.dumps({"status": "ok", "collection": collection, "indexed": 0}, indent=2))
+        return 0
+
+    logger.info(
+        "Bulk remember request | collection=%s | file=%s | format=%s | count=%d",
+        collection,
+        input_path,
+        fmt,
+        len(items),
+    )
+
+    resp = UpsertMemoryUseCase(emb, store).execute(
+        UpsertMemoryRequest(collection=collection, items=items, id_namespace=str(getattr(ns, "idns", "bulk")))
+    )
+    logger.info(
+        "Bulk remember completed | collection=%s | file=%s | indexed=%d",
+        collection,
+        input_path,
+        len(items),
+    )
+
+    print(
+        json.dumps(
+            {
+                "status": "ok",
+                "collection": collection,
+                "indexed": len(items),
+                "format": fmt,
+                "raw": resp.raw,
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
 def remember_memory(ns, emb, store):
     """
     Remember conversational facts by upserting arbitrary text lines as MemoryItem points.
@@ -704,13 +938,17 @@ def remember_memory(ns, emb, store):
         return 0
 
     tags = list(ns.tag or [])
-    meta_common = {
+    thread_id = current_thread_id()
+    meta_common: Dict[str, object] = {
         "kind": "conversational",
-        "tags": tags,
         "source": "cli:remember",
     }
+    if tags:
+        meta_common["tags"] = tags
+    if thread_id:
+        meta_common["thread_id"] = thread_id
 
-    items = [MemoryItem(text=t, meta=meta_common) for t in texts]
+    items = [MemoryItem(text=t, meta=dict(meta_common)) for t in texts]
     resp = UpsertMemoryUseCase(emb, store).execute(
         UpsertMemoryRequest(collection=collection, items=items, id_namespace=str(ns.idns))
     )

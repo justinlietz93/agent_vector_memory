@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch, call, ANY
 import pytest
 from argparse import Namespace
 
-from vector_memory.cli.main import dispatch_commands, run
+from vector_memory.cli.main import dispatch_commands, run, remember_bulk
 from vector_memory.cli.parsers import build_parser
 from vector_memory.application.dto import EnsureCollectionRequest, UpsertMemoryRequest, QueryRequest
 
@@ -149,6 +149,25 @@ class TestCommandParsing:
         assert args.tag == ["important", "project"]
         assert args.idns == "convo"
 
+    def test_remember_bulk_args(self):
+        """Test remember-bulk command argument parsing."""
+        parser = build_parser()
+
+        args = parser.parse_args([
+            "remember-bulk",
+            "--input", "./bulk.jsonl",
+            "--format", "jsonl",
+            "--tag", "cli",
+            "--tag", "docs",
+            "--idns", "bulk"
+        ])
+
+        assert args.cmd == "remember-bulk"
+        assert args.input == "./bulk.jsonl"
+        assert args.format == "jsonl"
+        assert args.tag == ["cli", "docs"]
+        assert args.idns == "bulk"
+
 
 class TestCommandDispatch:
     """Test command dispatch to appropriate handlers."""
@@ -193,6 +212,19 @@ class TestCommandDispatch:
         mock_print.assert_called_once()
         call_args = mock_print.call_args[0][0]
         assert "Unknown command: unknown-command" in call_args
+
+    @patch('vector_memory.cli.main.remember_bulk')
+    def test_dispatch_remember_bulk(self, mock_bulk):
+        """Test remember-bulk command dispatch."""
+        mock_emb = Mock()
+        mock_store = Mock()
+        mock_bulk.return_value = 0
+
+        ns = Namespace(cmd="remember-bulk")
+        result = dispatch_commands(ns, mock_emb, mock_store)
+
+        assert result == 0
+        mock_bulk.assert_called_once_with(ns, mock_emb, mock_store)
 
 
 class TestEnsureCollectionCommand:
@@ -446,6 +478,78 @@ class TestStoreTurnCommand:
         call_args = mock_print.call_args[0][0]
         error_data = json.loads(call_args)
         assert error_data["status"] == "error"
+
+
+class TestRememberBulkCommand:
+    """Test remember-bulk command implementation."""
+
+    @patch('vector_memory.cli.main._resolve_collection_name')
+    @patch('vector_memory.cli.main.UpsertMemoryUseCase')
+    def test_remember_bulk_jsonl(self, mock_use_case_class, mock_resolve, tmp_path):
+        """Test bulk remember with JSONL input."""
+        mock_resolve.return_value = "test_collection"
+        mock_use_case = Mock()
+        mock_use_case.execute.return_value = Mock(raw={})
+        mock_use_case_class.return_value = mock_use_case
+
+        bulk_file = tmp_path / "memories.jsonl"
+        bulk_file.write_text(
+            "\n".join(
+                [
+                    json.dumps({"text": "Alpha", "meta": {"topic": "A"}}),
+                    json.dumps({"text": "Beta", "tags": ["extra"]}),
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        ns = Namespace(
+            name=None,
+            input=str(bulk_file),
+            format="jsonl",
+            tag=["cli"],
+            idns="bulk"
+        )
+
+        with patch('builtins.print') as mock_print:
+            result = remember_bulk(ns, Mock(), Mock())
+
+        assert result == 0
+        mock_use_case.execute.assert_called_once()
+        request = mock_use_case.execute.call_args[0][0]
+        assert isinstance(request, UpsertMemoryRequest)
+        assert request.collection == "test_collection"
+        assert request.id_namespace == "bulk"
+        assert len(request.items) == 2
+        assert any("Alpha" in item.text for item in request.items)
+        for item in request.items:
+            assert "cli" in item.meta.get("tags", [])
+
+        mock_print.assert_called()
+
+    @patch('vector_memory.cli.main._resolve_collection_name')
+    def test_remember_bulk_missing_file(self, mock_resolve, tmp_path):
+        """Test bulk remember handles missing input files."""
+        mock_resolve.return_value = "test_collection"
+        missing = tmp_path / "missing.jsonl"
+
+        ns = Namespace(
+            name=None,
+            input=str(missing),
+            format="jsonl",
+            tag=[],
+            idns="bulk"
+        )
+
+        with patch('builtins.print') as mock_print:
+            result = remember_bulk(ns, Mock(), Mock())
+
+        assert result == 2
+        mock_print.assert_called_once()
+        error_data = json.loads(mock_print.call_args[0][0])
+        assert error_data["status"] == "error"
+        assert "not found" in error_data["error"]
 
 
 class TestCLIIntegration:

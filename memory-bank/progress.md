@@ -1,17 +1,17 @@
-# Progress
+# Progress (Updated: 2025-09-24)
 
 ## Done
 
-- [x] Initialize project
-- [x] Restore `setup.py` execution by adding main guard
-- [x] Ensure collection action uses in-venv interpreter
-- [x] Validate post-setup optional actions end-to-end
-- [x] Add URL validation to setup wizard prompts
+- Draft manual VDM knowledge graph seed for future automation
 
 ## Doing
 
-- [ ] Monitor for additional setup UX feedback
+
 
 ## Next
 
-- [ ] Upcoming task
+- Plan longitudinal validation of KG metrics and adaptive SIE tuning
+- Define automation workflow for VDM KG ingestion based on manual seed
+- Run extended parameter sweeps (λ, η, scaling targets) with enhanced simulator
+- Instrument live KG telemetry to trigger adaptive scaling when M₁/M₂ drift
+- Implement script to convert manual VDM KG seed into graph store updates

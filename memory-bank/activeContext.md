@@ -2,8 +2,8 @@
 
 ## Current Goals
 
-- Verify `setup.py` wizard runs end-to-end from virtualenv bootstrap through post-setup actions.
+- Consolidate assessment of the SIE stability loop and KG TDA metrics, and capture conclusions in long-term memory.
 
 ## Current Blockers
 
-- None (script now enters main routine after fix).
+- None; analysis complete and ready for documentation.

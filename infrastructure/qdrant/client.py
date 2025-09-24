@@ -42,7 +42,7 @@ def _load_thread_id_from_lock() -> Optional[str]:
     - VM_THREAD_LOCK_FILE or LOCK_FILE: explicit path to the lock file.
       Default resolves to vector_memory/tools/current_thread.lock relative to this module.
     """
-    enabled = str(os.getenv("VM_THREAD_FILTER", "1")).lower() in ("1", "true", "yes")
+    enabled = str(os.getenv("VM_THREAD_FILTER", "1")).lower() in {"1", "true", "yes"}
     if not enabled:
         return None
 
@@ -61,6 +61,12 @@ def _load_thread_id_from_lock() -> Optional[str]:
     kv = _parse_shell_kv_file(p)
     tid = kv.get("THREAD_ID")
     return tid.strip() if isinstance(tid, str) and tid.strip() else None
+
+
+def current_thread_id() -> Optional[str]:
+    """Return the active thread identifier when the filter is enabled."""
+
+    return _load_thread_id_from_lock()
 
 
 class QdrantVectorStore(VectorStore):
@@ -134,16 +140,14 @@ class QdrantVectorStore(VectorStore):
             r = requests.post(f"{base}/collections/{name}/points/search", json=body, timeout=timeout)
             r.raise_for_status()
             data = r.json() or {}
-            results: List[QueryResult] = []
-            for it in (data.get("result") or []):
-                results.append(
-                    QueryResult(
-                        id=str(it.get("id")),
-                        score=float(it.get("score", 0.0)),
-                        payload=it.get("payload") or {},
-                    )
+            return [
+                QueryResult(
+                    id=str(it.get("id")),
+                    score=float(it.get("score", 0.0)),
+                    payload=it.get("payload") or {},
                 )
-            return results
+                for it in (data.get("result") or [])
+            ]
 
     # --- Listing helpers for UI ---
     def list_collections(self) -> List[str]:
