@@ -1,0 +1,69 @@
+
+/* Dark theme */
+QMainWindow { background: #1b1e24; }
+QWidget { color: #e0e0e0; background: #23272e; font-size: 12px; }
+
+/* Inputs and views */
+QLineEdit, QTextEdit, QListWidget, QTreeWidget, QTableWidget, QGraphicsView {
+    background: #2b3038;
+    border: 1px solid #3a404a;
+    selection-background-color: #3d78ff;
+}
+
+/* Menubar with clear separation so docks never visually overlap */
+QMenuBar {
+    background: #1f2329;
+    padding: 4px 8px;
+    border-bottom: 1px solid #3a404a;
+}
+QMenuBar::item:selected { background: #3a404a; }
+QStatusBar {
+    background: #1f2329;
+    border-top: 1px solid #3a404a;
+}
+
+/* Visual separators/handles between dock areas */
+QMainWindow::separator {
+    background: #363c46;
+    width: 3px;   /* vertical handle thickness */
+    height: 3px;  /* horizontal handle thickness */
+}
+
+/* Dock widgets */
+QDockWidget {
+    /* keep default titlebar buttons/icons; set margins via title */
+}
+QDockWidget::title {
+    background: #2b3038;
+    padding: 4px 8px;
+    border-bottom: 1px solid #3a404a;
+    color: #d3d7df;
+}
+
+/* Highlight dock titlebar when ready to accept a drop (driven by dynamic property) */
+QDockWidget[dragHover="true"]::title {
+    background: #3d78ff;
+    color: #ffffff;
+}
+
+/* Tabs and central pane */
+QTabWidget::pane {
+    border: 1px solid #3a404a;
+}
+QTabBar::tab {
+    background: #2b3038;
+    padding: 4px 10px;
+    border: 1px solid #3a404a;
+    margin-right: 2px;
+}
+QTabBar::tab:selected { background: #3a404a; }
+QTabBar::tab:hover { background: #343a46; }
+
+/* Highlight central tab area when a dock is dragged over it */
+QTabWidget[dragHover="true"]::pane {
+    border: 1px dashed #3d78ff;
+}
+
+/* Buttons */
+QPushButton { background: #343a46; border: 1px solid #454c59; padding: 4px 8px; }
+QPushButton:hover { background: #3e4552; }
