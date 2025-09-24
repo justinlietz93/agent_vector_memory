@@ -1,5 +1,30 @@
 # Vector Memory — AGENTS.md (Usage Guide for AI Agents)
 
+## Environment Setup (Quickstart)
+
+1. **Confirm prerequisites**
+
+    - Python 3.9 or newer
+    - Qdrant reachable at `http://localhost:6333`
+    - Ollama running `mxbai-embed-large` at `http://localhost:11434`
+
+1. **Run the guided installer (recommended):** from the repo root execute `python setup.py` to create launchers, collect service URLs, and pre-populate `.env` defaults.
+
+1. **Set up manually for development (alternative):**
+
+    ```bash
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -e .
+    # optional launcher install
+    chmod +x ./tools/install-vector-memory.sh
+    ./tools/install-vector-memory.sh
+    ```
+
+    Ensure `$HOME/.local/bin` (or your chosen install prefix) is on `PATH`.
+
+1. **Export required environment variables** following the guidance below (at minimum `MEMORY_COLLECTION_NAME`, `QDRANT_URL`, and `OLLAMA_URL`).
+
 Purpose
 
 - Define how an AI agent should create, update, and retrieve long-term memory using this module.
@@ -88,25 +113,27 @@ Memory Model (What to store)
 
 Recommended Ingestion Flow (Write memory)
 
-1) Append facts to markdown notes in memory-bank/ as short, clear bullets with context.
-   Example file: memory-bank/agent_facts.md
-   ---
+1. Append facts to markdown notes in memory-bank/ as short, clear bullets with context. Example file: `memory-bank/agent_facts.md`
 
-   Title: Agent Operating Facts
-   Updated: 2025-09-23
-   ---
+    ```markdown
+    ---
+    Title: Agent Operating Facts
+    Updated: 2025-09-23
+    ---
+    - GPU: AMD 7900 XTX 24GB (ROCm)
+    - Ollama: <http://localhost:11434> model=mxbai-embed-large
+    - Qdrant: <http://localhost:6333>
+    - Policy: Prefer precise, atomic facts; avoid secrets; summarize logs.
+    - Practice: Re-index after writing new facts.
+    ```
 
-   - GPU: AMD 7900 XTX 24GB (ROCm)
-   - Ollama: <http://localhost:11434> model=mxbai-embed-large
-   - Qdrant: <http://localhost:6333>
-   - Policy: Prefer precise, atomic facts; avoid secrets; summarize logs.
-   - Practice: Re-index after writing new facts.
+1. Re-index the memory-bank directory:
 
-2) Re-index the memory-bank directory:
-   - vector-memory index-memory-bank --name "$MEMORY_COLLECTION_NAME" --dir memory-bank
+    - vector-memory index-memory-bank --name "$MEMORY_COLLECTION_NAME" --dir memory-bank
 
-3) Confirm idempotency
-   - Upserts are deterministic via UUIDv5 on content+source; safe to re-index after incremental edits.
+1. Confirm idempotency
+
+    - Upserts are deterministic via UUIDv5 on content+source; safe to re-index after incremental edits.
 
 Retrieval Flow (Use memory)
 

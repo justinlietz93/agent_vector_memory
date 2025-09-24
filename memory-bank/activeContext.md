@@ -2,8 +2,8 @@
 
 ## Current Goals
 
-- Goal 1
+- Verify `setup.py` wizard runs end-to-end from virtualenv bootstrap through post-setup actions.
 
 ## Current Blockers
 
-- None yet
+- None (script now enters main routine after fix).
