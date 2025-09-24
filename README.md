@@ -12,7 +12,17 @@ Requirements
 - Qdrant running (default <http://localhost:6333>)
 - Ollama running with `mxbai-embed-large` (default <http://localhost:11434>)
 
-Install (no pip required; preferred launcher method)
+Install (interactive setup recommended)
+
+Run the setup script for guided configuration (creates .env, installs launcher, etc.):
+
+```bash
+python setup.py
+```
+
+It asks about collections, URLs, chat tailing, and usage modes (MCP/UI/passive).
+
+Manual no-pip (if skipping setup.py):
 
 From the repo root, run the installer to create global launchers (defaults to ~/.local/bin):
 
@@ -27,7 +37,7 @@ export PATH="$HOME/.local/bin:$PATH"
 # Add to ~/.bashrc for persistence
 ```
 
-Alternative: pip install (for editable dev or if preferring virtualenv)
+Alternative: pip install (for editable dev or virtualenv)
 - Development (editable):
   pip install -e .
 - Regular:
@@ -62,4 +72,4 @@ Programmatic usage (MCP-friendly)
 
 Architecture
 
-- See memory-bank/vector_memory/ARCHITECTURE.md for layering, ports, DTOs, and contracts.
+- See ARCHITECTURE.md for layering, ports, DTOs, and contracts.

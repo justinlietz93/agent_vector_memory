@@ -1,4 +1,14 @@
-# Vector Memory — Quick Start (No pip install)
+# Vector Memory — Quick Start
+
+For first-time setup, run the interactive configuration script:
+
+```bash
+python setup.py
+```
+
+This guides you through environment configuration, collection naming, service URLs, and optional chat log tailing. It generates/updates .env and can install the launcher, ensure collections, and start services.
+
+For manual no-pip setup, continue below.
 
 This guide makes the `vector-memory` CLI executable from ANY directory on any Linux machine without installing a package. It installs tiny launchers into a bin directory (defaults to `~/.local/bin`) that point at this repo via `PYTHONPATH`.
 
@@ -14,7 +24,7 @@ Repo root used below is this directory (where this QUICKSTART.md lives).
 
 ---
 
-## 1) Install global launchers (no pip)
+## 1) Install global launchers (no pip; optional if using setup.py)
 
 Run the installer script (it writes two tiny launchers into a bin directory):
 

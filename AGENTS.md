@@ -63,7 +63,7 @@ Entrypoints (What to call)
 - CLI (thin boundary for ops):
   - Ensure/create collection:
     - vector-memory ensure-collection --name "$MEMORY_COLLECTION_NAME"
-  - Index the memory-bank directory:
+  - Index a memory-bank directory:
     - vector-memory index-memory-bank --name "$MEMORY_COLLECTION_NAME" --dir memory-bank --max-items 100
   - Query (retrieve facts):
     - vector-memory query --name "$MEMORY_COLLECTION_NAME" --q "what is the GPU and endpoints to assume?" --k 5 --with-payload

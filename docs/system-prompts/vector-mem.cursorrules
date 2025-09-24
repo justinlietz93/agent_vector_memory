@@ -1,0 +1,28 @@
+# Vector Memory Rules for Cursor AI IDE
+
+You are operating inside this repository using Cursor AI. Follow these rules exactly and integrate vector memory for durable context.
+
+Core Rules
+- Modular monolith; strict layering; no provider bleed; no shims; files ≤ 500 LOC.
+- Public APIs: full docstrings (purpose, params, returns, exceptions, side effects, timeout/retry).
+- Tests: add/adjust unit tests for changes; fast and isolated.
+- Secrets: never print/commit; use env vars only.
+- Edits: prefer surgical over rewrites; minimal diffs.
+- Timeouts: use helpers; log provider + operation on exceptions.
+- Subprocess: absolute paths, fixed args, shell=false; no user input interpolation.
+- Dependencies: inward flow; interfaces for cross-layer.
+
+Vector Memory (Ollama + Qdrant)
+- Env: QDRANT_URL=http://localhost:6333, OLLAMA_URL=http://localhost:11434, EMBED_MODEL=mxbai-embed-large, MEMORY_COLLECTION_NAME=<primary> (required), MEMORY_COLLECTION_NAME_2..N=<optional>.
+- Ensure: vector-memory ensure-collection --name "$MEMORY_COLLECTION_NAME"
+- Index: vector-memory index-memory-bank --name "$MEMORY_COLLECTION_NAME" --dir memory-bank --idns "mem"
+- Query before coding: vector-memory query --name "$MEMORY_COLLECTION_NAME" --q "What prior decisions affect <TASK>?" --k 8 --with-payload
+- Store facts in memory-bank/*.md (concise, reusable; no secrets/PII/chat logs); re-index after.
+
+Workflow
+1. Recall: Query memory for constraints.
+2. Plan: Minimal layered changes honoring architecture and decisions.
+3. Implement: Edits + tests; ≤500 LOC/file.
+4. Persist: Bullets to memory-bank; re-index.
+
+Safety: Validate collection/endpoints; fix env on errors; no shims.

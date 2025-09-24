@@ -290,10 +290,10 @@ class MainWindow(QMainWindow):
     # No showEvent override; allow user to adjust splitters freely after initial sizing
 
     def _show_welcome_message(self) -> None:
-        """Show initial welcome messages."""
-        collection = os.getenv("MEMORY_COLLECTION_NAME", "roo_project_mem")
-        self._logger.info("Vector Memory UI initialized")
-        self._logger.info(f"Collection: {collection}")
+            """Show initial welcome messages."""
+            collection = os.getenv("MEMORY_COLLECTION_NAME", "project_memory")
+            self._logger.info("Vector Memory UI initialized")
+            self._logger.info(f"Collection: {collection}")
 
     def _apply_scale(self, scale: float) -> None:
         """Apply simple, deterministic UI scaling: new_pt = baseline_pt × scale.
