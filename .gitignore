@@ -1,3 +1,16 @@
+# Vector Store Agent Memory .gitignore
+#
+# Author: Justin K. Lietz
+# Date: 2025-09-23
+# License: MIT
+#
+# Neuroca, Inc.
+# https://www.neuroca.ai
+
+
+# Repo specific
+tools/current_thread.lock
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

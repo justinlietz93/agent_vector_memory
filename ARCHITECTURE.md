@@ -14,21 +14,21 @@ Layering and Boundaries
 
 - Domain layer (pure types and ports)
   - Models and errors live in:
-    - [vector_memory/domain/models.py](vector_memory/domain/models.py)
-    - [vector_memory/domain/errors.py](vector_memory/domain/errors.py)
+    - [domain/models.py](domain/models.py)
+    - [domain/errors.py](domain/errors.py)
   - Ports (framework-agnostic interfaces) live in:
-    - [vector_memory/domain/interfaces.py](vector_memory/domain/interfaces.py)
+    - [domain/interfaces.py](domain/interfaces.py)
   - Properties:
     - No imports from application, infrastructure, CLI, or MCP.
     - Contains only value objects, simple dataclasses, and abstract ports.
 
 - Application layer (use-cases and DTOs)
   - DTOs live in:
-    - [vector_memory/application/dto.py](vector_memory/application/dto.py)
+    - [application/dto.py](application/dto.py)
   - Use-cases live in:
-    - [vector_memory/application/use_cases/ensure_collection.py](vector_memory/application/use_cases/ensure_collection.py)
-    - [vector_memory/application/use_cases/upsert_memory.py](vector_memory/application/use_cases/upsert_memory.py)
-    - [vector_memory/application/use_cases/query_memory.py](vector_memory/application/use_cases/query_memory.py)
+    - [application/use_cases/ensure_collection.py](application/use_cases/ensure_collection.py)
+    - [application/use_cases/upsert_memory.py](application/use_cases/upsert_memory.py)
+    - [application/use_cases/query_memory.py](application/use_cases/query_memory.py)
   - Responsibilities:
     - Orchestrate domain ports.
     - Validate requests, enforce policies (deterministic IDs, payload trimming), and normalize responses.
@@ -36,14 +36,14 @@ Layering and Boundaries
 
 - Infrastructure layer (adapters and policy)
   - Environment/config, logging, timeouts:
-    - [vector_memory/infrastructure/config.py](vector_memory/infrastructure/config.py)
-    - [vector_memory/infrastructure/logging.py](vector_memory/infrastructure/logging.py)
-    - [vector_memory/infrastructure/timeouts.py](vector_memory/infrastructure/timeouts.py)
+    - [infrastructure/config.py](infrastructure/config.py)
+    - [infrastructure/logging.py](infrastructure/logging.py)
+    - [infrastructure/timeouts.py](infrastructure/timeouts.py)
   - External adapters:
     - Ollama embedding adapter:
-      - [vector_memory/infrastructure/ollama/client.py](vector_memory/infrastructure/ollama/client.py)
+      - [infrastructure/ollama/client.py](infrastructure/ollama/client.py)
     - Qdrant vector store adapter:
-      - [vector_memory/infrastructure/qdrant/client.py](vector_memory/infrastructure/qdrant/client.py)
+      - [infrastructure/qdrant/client.py](infrastructure/qdrant/client.py)
   - Properties:
     - Implements domain ports via HTTP.
     - Encapsulates service-specific JSON and endpoints.
@@ -51,17 +51,17 @@ Layering and Boundaries
 
 - Ingestion (local sources)
   - Memory-bank loader:
-    - [vector_memory/ingestion/memory_bank_loader.py](vector_memory/ingestion/memory_bank_loader.py)
+    - [ingestion/memory_bank_loader.py](ingestion/memory_bank_loader.py)
   - Properties:
     - Converts .md files into domain MemoryItem with metadata.
     - No network access; deterministic loading.
 
 - Interface layer (entrypoints)
   - CLI:
-    - [vector_memory/cli/parsers.py](vector_memory/cli/parsers.py)
-    - [vector_memory/cli/main.py](vector_memory/cli/main.py)
+    - [cli/parsers.py](cli/parsers.py)
+    - [cli/main.py](cli/main.py)
   - MCP-friendly API:
-    - [vector_memory/mcp/api.py](vector_memory/mcp/api.py)
+    - [mcp/api.py](mcp/api.py)
   - Properties:
     - Thin translation from boundary input to application DTOs.
     - Structured JSON output suitable for automation.
@@ -97,13 +97,13 @@ Configuration (environment)
 
 Timeouts and Error Handling
 
-- All blocking HTTP operations are wrapped by operation_timeout from [vector_memory/infrastructure/timeouts.py](vector_memory/infrastructure/timeouts.py) and use request-level timeouts.
+- All blocking HTTP operations are wrapped by operation_timeout from [infrastructure/timeouts.py](infrastructure/timeouts.py) and use request-level timeouts.
 - Where available, central policy timeouts are honored; otherwise, conservative defaults are applied.
 - Adapters surface provider-specific errors as typed exceptions from the domain errors module.
 
 Logging and Observability
 
-- A single logger factory from [vector_memory/infrastructure/logging.py](vector_memory/infrastructure/logging.py) governs emission.
+- A single logger factory from [infrastructure/logging.py](infrastructure/logging.py) governs emission.
 - Boundary logs are concise and user-readable.
 - When applicable, logs include context keys: provider, operation, stage (start|mid_stream|finalize), failure_class, fallback_used.
 
@@ -135,13 +135,13 @@ Operational Assumptions
 Structure (authoritative)
 
 - Package roots and modules:
-  - [vector_memory/__init__.py](vector_memory/__init__.py)
-  - Domain: [vector_memory/domain](vector_memory/domain/__init__.py)
-  - Application: [vector_memory/application](vector_memory/application/__init__.py)
-  - Infrastructure: [vector_memory/infrastructure](vector_memory/infrastructure/__init__.py)
-  - Ingestion: [vector_memory/ingestion](vector_memory/ingestion/__init__.py)
-  - CLI: [vector_memory/cli](vector_memory/cli/__init__.py)
-  - MCP: [vector_memory/mcp](vector_memory/mcp/__init__.py)
+  - [__init__.py](__init__.py)
+  - Domain: [domain](domain/__init__.py)
+  - Application: [application](application/__init__.py)
+  - Infrastructure: [infrastructure](infrastructure/__init__.py)
+  - Ingestion: [ingestion](ingestion/__init__.py)
+  - CLI: [cli](cli/__init__.py)
+  - MCP: [mcp](mcp/__init__.py)
 
 Non-Goals
 

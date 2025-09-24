@@ -7,9 +7,9 @@ Purpose
 
 Authoritative docs
 
-- Module architecture: [vector_memory/ARCHITECTURE.md](../ARCHITECTURE.md:1)
-- Agent usage guide: [vector_memory/AGENTS.md](../AGENTS.md:1)
-- Quick start and installer: [vector_memory/QUICKSTART.md](../QUICKSTART.md:1)
+- Module architecture: [ARCHITECTURE.md](../ARCHITECTURE.md:1)
+- Agent usage guide: [AGENTS.md](../AGENTS.md:1)
+- Quick start and installer: [QUICKSTART.md](../QUICKSTART.md:1)
 - CLI entrypoint: [python.main()](../cli/main.py:1)
 - MCP API: [python.vector_query()](../mcp/api.py:1)
 

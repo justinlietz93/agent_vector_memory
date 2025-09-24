@@ -69,7 +69,7 @@ Entrypoints (What to call)
     - vector-memory query --name "$MEMORY_COLLECTION_NAME" --q "what is the GPU and endpoints to assume?" --k 5 --with-payload
 
 - MCP-friendly API (for agent tool wiring):
-  - Module path: [vector_memory/mcp/api.py](vector_memory/mcp/api.py)
+  - Module path: [mcp/api.py](mcp/api.py)
   - Exposed functions:
     - vector_create_collection(collection: str, dim: Optional[int] = None, distance: str = "Cosine", recreate: bool = False)
     - vector_index_memory_bank(collection: str, directory: str = "memory-bank", id_namespace: str = "mem", max_items: Optional[int] = None)
@@ -176,14 +176,14 @@ Operational Invariants
 Where to Look in the Code
 
 - CLI:
-  - [vector_memory/cli/parsers.py](vector_memory/cli/parsers.py)
-  - [vector_memory/cli/main.py](vector_memory/cli/main.py)
+  - [cli/parsers.py](cli/parsers.py)
+  - [cli/main.py](cli/main.py)
 - MCP:
-  - [vector_memory/mcp/api.py](vector_memory/mcp/api.py)
+  - [mcp/api.py](mcp/api.py)
 - Use-cases:
-  - [vector_memory/application/use_cases/ensure_collection.py](vector_memory/application/use_cases/ensure_collection.py)
-  - [vector_memory/application/use_cases/upsert_memory.py](vector_memory/application/use_cases/upsert_memory.py)
-  - [vector_memory/application/use_cases/query_memory.py](vector_memory/application/use_cases/query_memory.py)
+  - [application/use_cases/ensure_collection.py](application/use_cases/ensure_collection.py)
+  - [application/use_cases/upsert_memory.py](application/use_cases/upsert_memory.py)
+  - [application/use_cases/query_memory.py](application/use_cases/query_memory.py)
 
 Checklist for Agents (before finishing a task)
 

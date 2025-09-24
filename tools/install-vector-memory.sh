@@ -74,11 +74,7 @@ if ! PY_BIN="$(command -v python3 || command -v python)"; then
   exit 127
 fi
 
-# Validate expected module path exists
-if [[ ! -d "${repo_root}/vector_memory" ]]; then
-  echo "ERROR: Could not find vector_memory package under repo root: ${repo_root}" >&2
-  exit 1
-fi
+# No subdirectory check needed; package is at repo root
 
 # Create prefix dir
 mkdir -p "${prefix}"

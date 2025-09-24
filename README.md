@@ -12,18 +12,32 @@ Requirements
 - Qdrant running (default <http://localhost:6333>)
 - Ollama running with `mxbai-embed-large` (default <http://localhost:11434>)
 
-Install (user site, no sudo)
+Install (no pip required; preferred launcher method)
 
+From the repo root, run the installer to create global launchers (defaults to ~/.local/bin):
+
+```bash
+chmod +x ./tools/install-vector-memory.sh
+./tools/install-vector-memory.sh
+```
+
+Ensure the prefix is on your PATH (e.g., for default):
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+# Add to ~/.bashrc for persistence
+```
+
+Alternative: pip install (for editable dev or if preferring virtualenv)
 - Development (editable):
-  pip install --user -e .
+  pip install -e .
 - Regular:
-  pip install --user .
+  pip install .
 
 Note: Ensure your PATH includes the user scripts directory, e.g.:
 
 - Linux: export PATH="$HOME/.local/bin:$PATH"
 
-CLI usage
+CLI usage (after launcher install or pip)
 
 - Ensure collection (dimension 1024 for mxbai-embed-large):
   vector-memory ensure-collection --name crux_memory --dim 1024
@@ -31,6 +45,8 @@ CLI usage
   vector-memory index-memory-bank --name crux_memory --dir memory-bank --max-items 5
 - Query:
   vector-memory query --name crux_memory --q "architecture rules" --k 3
+
+See QUICKSTART.md for full no-pip setup, .env config, and project bootstrapping.
 
 Environment variables
 
