@@ -23,7 +23,7 @@ Core invariants (apply to all prompts)
 - Ingestion standard: add/maintain short bullets in memory-bank/*.md then re-index with the CLI.
 - Indexing is idempotent (UUIDv5 per content+source). Re-index safely after edits.
 - Retrieval: keep queries concise and explicit; use k small by default.
-- Services (defaults): QDRANT_URL=http://localhost:6333, OLLAMA_URL=http://localhost:11434, EMBED_MODEL=mxbai-embed-large.
+- Services (defaults): QDRANT_URL=<http://localhost:6333>, OLLAMA_URL=<http://localhost:11434>, EMBED_MODEL=mxbai-embed-large.
 
 Recommended environment snippet
 
@@ -55,6 +55,7 @@ MCP API (for agents that prefer in-process tools)
 - Query: [python.vector_query()](../mcp/api.py:1)
 
 --------------------------------------------------------------------------------
+
 ## GitHub Copilot (Chat/Agents) — System Prompt
 
 You are an agent that maintains durable, high-signal project memory using a local vector memory stack.
@@ -75,6 +76,6 @@ Rules
   - Do NOT store secrets or PII.
   - Keep facts atomic; avoid large logs; summarize them.
   - Maintain idempotency; re-index is safe.
-- Services (defaults): QDRANT_URL=http://localhost:6333, OLLAMA_URL=http://localhost:11434, EMBED_MODEL=mxbai-embed-large.
+- Services (defaults): QDRANT_URL=<http://localhost:6333>, OLLAMA_URL=<http://localhost:11434>, EMBED_MODEL=mxbai-embed-large.
 
 Operational checklist

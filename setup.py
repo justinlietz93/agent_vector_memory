@@ -7,18 +7,64 @@ Generates .env file and optionally runs initialization steps (install launcher, 
 """
 
 import os
-import shutil
-import subprocess
 import sys
 from pathlib import Path
+import subprocess
+
+def in_venv() -> bool:
+    """Check if currently in a virtual environment."""
+    return (hasattr(sys, 'real_prefix') or
+            (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix))
+
+def create_venv() -> str:
+    """Create .venv and return python path."""
+    venv_path = Path(".venv")
+    if not venv_path.exists():
+        print("Creating virtual environment in .venv...")
+        subprocess.check_call([sys.executable, "-m", "venv", str(venv_path)])
+    if sys.platform == "win32":
+        python_path = venv_path / "Scripts" / "python.exe"
+    else:
+        python_path = venv_path / "bin" / "python"
+    return str(python_path)
+
+def re_exec_in_venv() -> None:
+    """Re-execute the script in .venv."""
+    python_path = create_venv()
+    os.execv(python_path, [python_path, __file__] + sys.argv[1:])
+
+# Virtual environment setup at the very top (stdlib only)
+if not in_venv():
+    print("Vector Memory Setup - Virtual Environment Check")
+    use_venv = input("Use/create virtual environment (.venv) for installations? [Y/n]: ").strip().lower() in ('', 'y', 'yes')
+    if use_venv:
+        print("Creating and switching to virtual environment...")
+        re_exec_in_venv()
+
+# Now safe: import non-stdlib and proceed
+import shutil
 from typing import Optional
 
-try:
-    from dotenv import load_dotenv, set_key
-except ImportError:
-    print("Installing python-dotenv for .env handling...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "python-dotenv"])
-    from dotenv import load_dotenv, set_key
+# Stdlib .env parsing
+def load_env_from_file(env_path: Path) -> dict:
+    """Load .env as dict (ignore comments)."""
+    env = {}
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith('#'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    env[key] = value.strip('"\'')
+    return env
+
+def set_env_key(env_path: Path, key: str, value: str) -> None:
+    """Write key=value to .env (append if new, overwrite if exists)."""
+    env = load_env_from_file(env_path)
+    env[key] = value
+    with open(env_path, 'w') as f:
+        for k, v in env.items():
+            f.write(f"{k}={v}\n")
 
 def print_step(message: str) -> None:
     print(f"\n{'='*50}")
@@ -53,16 +99,17 @@ def ask_path(question: str, default: Optional[str] = None) -> str:
     return default if not path and default else os.path.expanduser(path)
 
 def locate_chat_paths() -> list[str]:
-    """Search for potential chat log directories (Roo/VSCode patterns)."""
+    """Search for potential chat log directories."""
+    print("Searching for chat log directories...")
     candidates = []
     home = Path.home()
-    # Common VSCode/Roo paths
     patterns = [
         home / ".config" / "Code" / "User" / "globalStorage" / "**" / "tasks",
         home / ".vscode" / "**" / "tasks",
-        home / "AppData" / "Roaming" / "Code" / "User" / "globalStorage" / "**" / "tasks",  # Windows
+        home / "AppData" / "Roaming" / "Code" / "User" / "globalStorage" / "**" / "tasks",
     ]
     for pattern in patterns:
+        print(f"Searching: {pattern}")
         candidates.extend(
             str(path)
             for path in pattern.glob("*")
@@ -72,11 +119,12 @@ def locate_chat_paths() -> list[str]:
                 for f in ["ui_messages.json", "api_conversation_history.json"]
             )
         )
-    return sorted(candidates, key=os.path.getmtime, reverse=True)  # Most recent first
+    print(f"Found {len(candidates)} candidates.")
+    if not candidates:
+        print("Try running: find ~ -name 'ui_messages.json' 2>/dev/null | head -5")
+    return sorted(candidates, key=os.path.getmtime, reverse=True)
 
 def ensure_launcher_installed() -> None:
-    """Run the install script if launcher not available."""
-    import shutil
     if not shutil.which("vector-memory"):
         print("\nInstalling vector-memory launcher...")
         subprocess.check_call(["bash", "tools/install-vector-memory.sh"])
@@ -84,12 +132,10 @@ def ensure_launcher_installed() -> None:
     print("Launcher ready.")
 
 def ensure_collection(collection_name: str) -> None:
-    """Ensure the primary collection exists."""
     print(f"\nEnsuring collection '{collection_name}'...")
     subprocess.check_call(["vector-memory", "ensure-collection", "--name", collection_name])
 
 def start_watcher(chat_dir: str, collection_name: str, background: bool = True) -> None:
-    """Start the chat watcher (optionally in background)."""
     cmd = ["bash", "tools/watch_roo_code.sh"]
     if background:
         cmd = ["nohup"] + cmd + [">", "watcher.log", "2>&1", "&"]
@@ -100,31 +146,23 @@ def start_watcher(chat_dir: str, collection_name: str, background: bool = True) 
     print(f"Watcher started for '{chat_dir}' (collection: {collection_name}). Logs: watcher.log")
 
 def install_requirements() -> None:
-    """Install project requirements if user confirms."""
-    if ask_yes_no("Install requirements (UI deps from ui/requirements.txt and editable core install)?", default=True):
-        # UI requirements
+    if ask_yes_no("Install requirements (UI deps)?", default=True):
         ui_req = Path("ui/requirements.txt")
         if ui_req.exists():
             print("Installing UI requirements...")
             subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(ui_req)])
         else:
-            print("No ui/requirements.txt found; skipping UI deps.")
-
-        # Core editable install (optional for pip mode)
-        if ask_yes_no("Install core package in editable mode (pip install -e .)?", default=False):
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", "."])
+            print("No ui/requirements.txt; skipping.")
         print("Requirements installed.")
 
 def setup_agent_prompts(agent_choice: str) -> None:
-    """Copy/move agent-specific prompts to root based on choice."""
     prompts_dir = Path("docs/system-prompts")
     root = Path(".")
-
     if agent_choice == "Claude Code":
         src = prompts_dir / "CLAUDE.md"
         dst = root / "CLAUDE.md"
         if src.exists():
-            shutil.move(src, dst)
+            shutil.move(str(src), str(dst))
             print("Moved CLAUDE.md to root.")
         else:
             print("CLAUDE.md not found; skipping.")
@@ -141,7 +179,7 @@ def setup_agent_prompts(agent_choice: str) -> None:
     elif agent_choice == "Roo-Code VSCode Agent Extension":
         src = prompts_dir / "vector-mem.roo-code.md"
         if src.exists():
-            print(f"Prompt ready: {src}. Manually add to Roo Code GUI settings.")
+            print(f"Prompt ready: {src}. Manually add to Roo Code GUI.")
         else:
             print("vector-mem.roo-code.md not found; skipping.")
 
@@ -150,9 +188,7 @@ def setup_agent_prompts(agent_choice: str) -> None:
         dst = root / "vscode-vector-mem.instructions.md"
         if src.exists():
             shutil.copy2(src, dst)
-            print(
-                "Copied vscode-vector-mem.instructions.md to root for Copilot instructions."
-            )
+            print("Copied vscode-vector-mem.instructions.md to root.")
         else:
             print("vscode-vector-mem.instructions.md not found; skipping.")
 
@@ -165,95 +201,86 @@ def setup_agent_prompts(agent_choice: str) -> None:
         else:
             print("vector-mem.windsurfrules not found; skipping.")
 
-    else:
-        print("Skipping agent prompt setup.")
-
 def main() -> None:
     env_path = Path(".env")
-    if env_path.exists():
-        load_dotenv(dotenv_path=env_path)
+    env = load_env_from_file(env_path) if env_path.exists() else {}
 
-    print_step("Welcome to Vector Memory Setup!")
-    print("This script will guide you through configuration. We'll generate/update .env and set up based on your choices.")
+    print_step("Environment Basics")
+    defaults = {
+        "collection": env.get("MEMORY_COLLECTION_NAME", "project_memory"),
+        "ollama_url": env.get("OLLAMA_URL", "http://localhost:11434"),
+        "qdrant_url": env.get("QDRANT_URL", "http://localhost:6333"),
+        "model": "mxbai-embed-large"  # Fixed
+    }
+    print(f"Current defaults: Collection={defaults['collection']}, Ollama={defaults['ollama_url']}, Qdrant={defaults['qdrant_url']}, Model={defaults['model']}")
+    custom_env = ask_yes_no("Custom environment settings?", default=False)
+    if custom_env:
+        defaults["collection"] = input(f"Primary collection [ {defaults['collection']} ]: ").strip() or defaults["collection"]
+        defaults["ollama_url"] = input(f"Ollama URL [ {defaults['ollama_url']} ]: ").strip() or defaults['ollama_url']
+        defaults["qdrant_url"] = input(f"Qdrant URL [ {defaults['qdrant_url']} ]: ").strip() or defaults['qdrant_url']
+        print(f"Model remains {defaults['model']}; pull with 'ollama pull {defaults['model']}' if needed.")
+    collection_name, ollama_url, qdrant_url, model = defaults["collection"], defaults["ollama_url"], defaults["qdrant_url"], defaults["model"]
 
-    # 1. Primary collection name
-    default_coll = os.getenv("MEMORY_COLLECTION_NAME", "project_memory")
-    collection_name = ask_choice(
-        "What should the primary collection be named?",
-        ["project_memory", "my_app_mem", "Custom..."],
-        default=0
-    )
-    if collection_name == "Custom...":
-        collection_name = input("Enter custom name: ").strip() or default_coll
-
-    # 2. Embedding model (fixed)
-    model = "mxbai-embed-large"  # Only supported
-    print(f"Embedding model: {model} (default; pull via 'ollama pull {model}' if needed)")
-
-    # 3. Ollama URL
-    ollama_url = ask_choice(
-        "Ollama URL?",
-        ["http://localhost:11434", "Custom..."],
-        default=0
-    )
-    if ollama_url == "Custom...":
-        ollama_url = input("Enter Ollama URL (e.g., http://host:port): ").strip() or "http://localhost:11434"
-
-    # 4. Qdrant URL
-    qdrant_url = ask_choice(
-        "Qdrant URL?",
-        ["http://localhost:6333", "Custom..."],
-        default=0
-    )
-    if qdrant_url == "Custom...":
-        qdrant_url = input("Enter Qdrant URL (e.g., http://host:port): ").strip() or "http://localhost:6333"
-
-    # 5. Agent environment
+    print_step("Agent & Chat Tailing")
     agents = [
-        "Claude Code (CLI agent; moves CLAUDE.md to root)",
+        "Claude Code (moves CLAUDE.md to root)",
         "Cursor AI IDE (copies vector-mem.cursorrules to root)",
-        "Roo-Code VSCode Agent Extension (manual GUI add for vector-mem.roo-code.md)",
+        "Roo-Code VSCode Agent Extension (manual GUI for vector-mem.roo-code.md)",
         "VSCode Copilot Agent (copies vscode-vector-mem.instructions.md to root)",
         "Windsurf AI IDE (copies vector-mem.windsurfrules to root)",
         "None (skip)"
     ]
-    agent_choice = ask_choice("Which agent environment are you using?", agents, default=5)
+    agent_choice = ask_choice("Agent environment?", agents, default=5)
 
-    # 6. Enable chat log tailing?
-    enable_tailing = ask_yes_no("Enable automatic chat log ingestion (tailing ui_messages.json)?", default=False)
+    enable_tailing = ask_yes_no("Enable chat log tailing?", default=False)
     chat_dir = None
     if enable_tailing:
-        locate = ask_yes_no("Enter path explicitly, or let system locate (searches VSCode/Roo paths)?", default=True)
+        locate = ask_yes_no("Auto-locate or explicit path?", default=True)
         if locate:
             candidates = locate_chat_paths()
             if candidates:
-                print("Found candidates (most recent first):")
-                for i, cand in enumerate(candidates[:5]):
+                print("Top candidates (recent first):")
+                for i, cand in enumerate(candidates[:3]):
                     print(f"  {i}. {cand}")
-                choice = ask_choice("Select or Custom...", candidates[:5] + ["Custom..."])
+                choice = ask_choice("Select?", candidates[:3] + ["Custom..."])
                 if choice == "Custom...":
-                    chat_dir = ask_path("Enter chat tasks dir:", candidates[0] if candidates else None)
+                    chat_dir = ask_path("Enter path:")
                 else:
                     chat_dir = choice
             else:
-                print("No candidates found. Entering manually...")
-                chat_dir = ask_path("Enter chat tasks dir (e.g., ~/.config/Code/.../tasks):")
+                chat_dir = ask_path("Enter path (e.g., ~/.config/Code/.../tasks):")
         else:
-            chat_dir = ask_path("Enter chat tasks dir:")
+            chat_dir = ask_path("Enter path:")
 
-    # 7. Usage mode
+    print_step("Usage Mode")
     modes = [
-        "MCP (tools for agents like Roo/Claude)",
-        "UI (run the graphical interface)",
-        "Passive (local upsert: run watcher for chat logs)"
+        "All (MCP + UI + Passive watcher)",
+        "MCP (agent tools)",
+        "UI only",
+        "Passive watcher only"
     ]
-    mode = ask_choice("How will you use Vector Memory?", modes, default=0)
-    use_mcp = "MCP" in mode
-    use_ui = "UI" in mode
-    use_passive = "Passive" in mode
-    run_now = ask_yes_no("Run setup actions now (install launcher, ensure collection, start services)?", default=True)
+    mode = ask_choice("Usage?", modes, default=0)
+    use_mcp = "All" in mode or "MCP" in mode
+    use_ui = "All" in mode or "UI" in mode
+    use_passive = "All" in mode or "Passive" in mode
 
-    # Generate .env
+    print_step("Confirm Choices")
+    summary = f"""
+- Collection: {collection_name}
+- Ollama: {ollama_url}
+- Qdrant: {qdrant_url}
+- Model: {model}
+- Agent: {agent_choice}
+- Chat Tailing: {'Enabled (' + chat_dir + ')' if chat_dir else 'Disabled'}
+- Mode: {mode}
+"""
+    print(summary)
+    confirm = ask_yes_no("Write .env and apply? [Y/n]:", default=True)
+    if not confirm:
+        print("Setup cancelled.")
+        sys.exit(0)
+
+    # Apply
     config = {
         "MEMORY_COLLECTION_NAME": collection_name,
         "EMBED_MODEL": model,
@@ -262,35 +289,27 @@ def main() -> None:
     }
     if chat_dir:
         config["ROO_TASKS_DIR"] = chat_dir
-        config["STORE_SETTINGS"] = "all" if ask_yes_no("Store full chat content (no redaction)?", default=False) else "redacted"
+        config["STORE_SETTINGS"] = input("Full content (all) or redacted? [redacted]: ").strip().lower()
+        if config["STORE_SETTINGS"] not in ("all", "full"):
+            config["STORE_SETTINGS"] = "redacted"
 
     for key, value in config.items():
-        set_key(env_path, key, value)
+        set_env_key(env_path, key, value)
 
-    print(f"\nGenerated/updated .env with: {config}")
+    print("\n.env updated!")
 
-    # Setup agent prompts
     setup_agent_prompts(agent_choice)
 
-    if run_now:
-        # Install launcher
+    # Run actions (optional)
+    if ask_yes_no("Run actions now (launcher, requirements, collection, services)?", default=True):
         ensure_launcher_installed()
-
-        # Install requirements
         install_requirements()
-
-        # Ensure collection
         ensure_collection(collection_name)
-
-        # Start based on mode
         if use_passive and chat_dir:
             start_watcher(chat_dir, collection_name)
         if use_ui:
             subprocess.Popen([sys.executable, "ui/app.py"])
         if use_mcp:
-            print("MCP ready: Use 'vector-memory-mcp' or import from mcp/api.py")
+            print("MCP ready: Use 'vector-memory-mcp' or import mcp/api.py")
 
-    print_step("Setup complete! Review .env and run 'source .env' if needed.")
-
-if __name__ == "__main__":
-    main()
+    print_step("Setup complete! Source .env for env vars.")
